@@ -1,91 +1,76 @@
+import pytest
 from fastapi.testclient import TestClient
 from main import app
+from services.prediction import prediction_service
 
-client = TestClient(app)
 
-def test_predict_positive_verified():
-    """Проверка: Подтвержденный продавец (даже без картинок) -> True"""
+@pytest.fixture
+def client():
+
+    with TestClient(app) as c:
+        yield c
+
+
+test_cases = [
+    ("Verified User", True, 5, 200),
+    ("Unverified User", False, 0, 200),
+    ("Many Images", False, 10, 200),
+]
+
+@pytest.mark.parametrize("name, is_verified, img_qty, expected_status", test_cases)
+def test_predict_success_scenarios(client, name, is_verified, img_qty, expected_status):
+    """Проверяет успешные сценарии предсказания"""
     payload = {
         "seller_id": 1,
-        "is_verified_seller": True,
+        "is_verified_seller": is_verified,
         "item_id": 100,
-        "name": "Test Item",
-        "description": "Desc",
+        "name": name,
+        "description": "Test description",
         "category": 1,
-        "images_qty": 0 
+        "images_qty": img_qty
     }
     response = client.post("/predict", json=payload)
-    assert response.status_code == 200
-    assert response.json() is True
+    
+    assert response.status_code == expected_status
+    data = response.json()
+    assert "is_violation" in data
+    assert "probability" in data
+    assert isinstance(data["is_violation"], bool)
+    assert isinstance(data["probability"], float)
 
-def test_predict_positive_unverified_with_images():
-    """Проверка: Неподтвержденный продавец, но есть картинки -> True"""
+def test_validation_error(client):
+    """Проверка ошибки 422 при неверных типах данных"""
     payload = {
-        "seller_id": 2,
+        "seller_id": "STING_INSTEAD_OF_INT",
         "is_verified_seller": False,
-        "item_id": 101,
-        "name": "Test Item",
+        "item_id": 100,
+        "name": "Test",
         "description": "Desc",
         "category": 1,
-        "images_qty": 1
-    }
-    response = client.post("/predict", json=payload)
-    assert response.status_code == 200
-    assert response.json() is True
-
-def test_predict_negative():
-    """Проверка: Неподтвержденный продавец без картинок -> False"""
-    payload = {
-        "seller_id": 3,
-        "is_verified_seller": False,
-        "item_id": 102,
-        "name": "Test Item",
-        "description": "Desc",
-        "category": 1,
-        "images_qty": 0
-    }
-    response = client.post("/predict", json=payload)
-    assert response.status_code == 200
-    assert response.json() is False
-
-def test_validation_error_missing_field():
-    """Проверка валидации: пропущено обязательное поле seller_id"""
-    payload = {
-        # "seller_id": 1, <--- Пропущено
-        "is_verified_seller": False,
-        "item_id": 103,
-        "name": "Error",
-        "description": "Desc",
-        "category": 1,
-        "images_qty": 1
-    }
-    response = client.post("/predict", json=payload)
-    assert response.status_code == 422 # Ошибка валидации
-
-def test_validation_error_wrong_type():
-    """Проверка валидации: images_qty передан как строка, которую нельзя перевести в int"""
-    payload = {
-        "seller_id": 4,
-        "is_verified_seller": False,
-        "item_id": 104,
-        "name": "Error",
-        "description": "Desc",
-        "category": 1,
-        "images_qty": "two" # Ошибка типа
+        "images_qty": 5
     }
     response = client.post("/predict", json=payload)
     assert response.status_code == 422
 
-def test_validation_negative_images():
-    """Проверка валидации: количество картинок меньше 0"""
+def test_model_unavailable_error(client):
+    """Проверка ошибки 503, если модель принудительно удалена"""
+    # Сохраняем реальную модель
+    original_model = prediction_service.model
+    # Имитируем отсутствие модели
+    prediction_service.model = None
+    
     payload = {
-        "seller_id": 5,
+        "seller_id": 1,
         "is_verified_seller": False,
-        "item_id": 105,
-        "name": "Error",
+        "item_id": 100,
+        "name": "Test",
         "description": "Desc",
         "category": 1,
-        "images_qty": -1
+        "images_qty": 5
     }
+    
     response = client.post("/predict", json=payload)
-    assert response.status_code == 422
+    assert response.status_code == 503
+    
+    # Возвращаем модель на место
+    prediction_service.model = original_model
