@@ -1,6 +1,7 @@
 import logging
 import numpy as np
 from model import train_model, save_model, load_model
+from services.repositories import ad_repo
 
 logging.basicConfig(
     level=logging.INFO,
@@ -24,6 +25,16 @@ class PredictionService:
             logger.info("Model trained and saved.")
         else:
             logger.info("Model loaded from disk.")
+
+    async def predict_by_id(self, item_id: int):
+        """Получает данные из БД по ID и делает предсказание"""
+
+        item = await ad_repo.get_ad_by_id(item_id)
+        
+        if not item:
+            return None
+            
+        return self.predict(item)	 
 
     def predict(self, item) -> dict:
         """
