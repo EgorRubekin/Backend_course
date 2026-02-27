@@ -1,11 +1,14 @@
+import uvicorn
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
-import uvicorn
 
 from db import db 
 from services.prediction import prediction_service
+from services.kafka_producer import kafka_producer
+
 from routers.prediction import router as prediction_router
 from routers.simple_predict import router as simple_predict_router
+from routers.async_predict import router as async_router
 
 try:
     from routers.users import router as user_router, root_router
@@ -15,25 +18,39 @@ except ImportError:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-
     await db.connect() 
+    
+    await kafka_producer.start()
+    
     prediction_service.startup()
+    
     yield
+    
+    await kafka_producer.stop()
+    
     await db.disconnect()
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(
+    title="Avito Moderation Service",
+    lifespan=lifespan
+)
 
-app.include_router(prediction_router)
-app.include_router(simple_predict_router) # Наш новый роутер для БД
+app.include_router(prediction_router, tags=["Synchronous Prediction"])
+app.include_router(simple_predict_router, tags=["DB Prediction"])
+app.include_router(async_router, tags=["Asynchronous Prediction"]) 
 
 if user_router:
-    app.include_router(user_router, prefix='/users')
+    app.include_router(user_router, prefix='/users', tags=["Users"])
 if root_router:
-    app.include_router(root_router)
+    app.include_router(root_router, tags=["Auth"])
 
-@app.get("/")
+@app.get("/", tags=["Health"])
 async def root():
-    return {"message": "Hello World", "db_status": "connected"}
+    return {
+        "message": "Avito Backend Course API",
+        "db_status": "connected" if db.pool else "disconnected",
+        "kafka_status": "ready" if kafka_producer.producer else "not_initialized"
+    }
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8003)
+    uvicorn.run("main:app", host="0.0.0.0", port=8003, reload=True)
