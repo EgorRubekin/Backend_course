@@ -24,5 +24,52 @@ class AdRepository:
         VALUES ($1, $2, $3, $4, $5) RETURNING id
         """
         return await db.pool.fetchval(query, seller_id, title, description, category, img_qty)
+    
+
+    async def create_moderation_task(self, item_id: int) -> int:
+        query = """
+        INSERT INTO moderation_results (item_id, status)
+        VALUES ($1, 'pending') RETURNING id
+        """
+        return await db.pool.fetchval(query, item_id)
+
+    async def update_moderation_task(self, task_id: int, status: str, 
+                                     is_violation: bool = None, 
+                                     probability: float = None, 
+                                     error_message: str = None):
+        query = """
+        UPDATE moderation_results 
+        SET status = $2, is_violation = $3, probability = $4, 
+            error_message = $5, processed_at = NOW()
+        WHERE id = $1
+        """
+        await db.pool.execute(query, task_id, status, is_violation, probability, error_message)
+
+    async def get_moderation_task(self, task_id: int):
+        query = "SELECT * FROM moderation_results WHERE id = $1"
+        row = await db.pool.fetchrow(query, task_id)
+        return dict(row) if row else None
+
+
+    async def create_moderation_task(self, item_id: int) -> int:
+        query = """
+            INSERT INTO moderation_results (item_id, status)
+            VALUES ($1, 'pending') RETURNING id
+        """
+        return await db.pool.fetchval(query, item_id)
+
+    async def update_moderation_task(self, task_id: int, status: str, is_violation: bool = None, 
+                                     probability: float = None, error_message: str = None):
+        query = """
+            UPDATE moderation_results 
+            SET status = $2, is_violation = $3, probability = $4, error_message = $5, processed_at = NOW()
+            WHERE id = $1
+        """
+        await db.pool.execute(query, task_id, status, is_violation, probability, error_message)
+
+    async def get_moderation_task(self, task_id: int):
+        query = "SELECT * FROM moderation_results WHERE id = $1"
+        row = await db.pool.fetchrow(query, task_id)
+        return dict(row) if row else None
 
 ad_repo = AdRepository()
