@@ -71,5 +71,11 @@ class AdRepository:
         query = "SELECT * FROM moderation_results WHERE id = $1"
         row = await db.pool.fetchrow(query, task_id)
         return dict(row) if row else None
+    
+    async def delete_ad_full(self, item_id: int):
+        async with db.pool.acquire() as conn:
+            async with conn.transaction():
+                await conn.execute("DELETE FROM moderation_results WHERE item_id = $1", item_id)
+                await conn.execute("DELETE FROM ads WHERE id = $1", item_id)
 
 ad_repo = AdRepository()
