@@ -1,6 +1,9 @@
 import uvicorn
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
+from prometheus_fastapi_instrumentator import Instrumentator
+from app.metrics import PREDICTIONS_TOTAL
+
 
 from db import db 
 from services.prediction import prediction_service
@@ -23,6 +26,7 @@ async def lifespan(app: FastAPI):
     await db.connect() 
     await kafka_producer.start()
     prediction_service.startup()
+
     
     yield
     
@@ -34,6 +38,8 @@ app = FastAPI(
     title="Avito Moderation Service",
     lifespan=lifespan
 )
+
+Instrumentator().instrument(app).expose(app)
 
 app.include_router(prediction_router, tags=["Synchronous Prediction"])
 app.include_router(simple_predict_router, tags=["DB Prediction"])

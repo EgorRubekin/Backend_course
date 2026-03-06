@@ -31,6 +31,26 @@ services:
     environment:
       - REDIS_PORT=6379
 
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    networks:
+      - app-network
+
+  grafana:
+    image: grafana/grafana:latest
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - app-network
+
   console:
     image: redpandadata/console:latest
     environment:
@@ -39,3 +59,7 @@ services:
       - "8080:8080"
     depends_on:
       - redpanda
+
+networks:
+  app-network:
+    driver: bridge
