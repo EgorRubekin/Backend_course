@@ -1,9 +1,10 @@
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from contextlib import asynccontextmanager
 from prometheus_fastapi_instrumentator import Instrumentator
 from app.metrics import PREDICTIONS_TOTAL
-
+from routers.auth import router as auth_router
+from routers.auth import get_current_account
 
 from db import db 
 from services.prediction import prediction_service
@@ -26,7 +27,6 @@ async def lifespan(app: FastAPI):
     await db.connect() 
     await kafka_producer.start()
     prediction_service.startup()
-
     
     yield
     
@@ -41,10 +41,12 @@ app = FastAPI(
 
 Instrumentator().instrument(app).expose(app)
 
-app.include_router(prediction_router, tags=["Synchronous Prediction"])
-app.include_router(simple_predict_router, tags=["DB Prediction"])
-app.include_router(async_router, tags=["Asynchronous Prediction"]) 
-app.include_router(ads_router, tags=["Ads Management"]) 
+app.include_router(prediction_router, tags=["Synchronous Prediction"], dependencies=[Depends(get_current_account)])
+app.include_router(simple_predict_router, tags=["DB Prediction"], dependencies=[Depends(get_current_account)])
+app.include_router(async_router, tags=["Asynchronous Prediction"], dependencies=[Depends(get_current_account)]) 
+app.include_router(ads_router, tags=["Ads Management"], dependencies=[Depends(get_current_account)]) 
+
+app.include_router(auth_router)
 
 if user_router:
     app.include_router(user_router, prefix='/users', tags=["Users"])

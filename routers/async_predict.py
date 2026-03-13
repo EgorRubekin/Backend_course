@@ -1,11 +1,16 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from services.repositories import ad_repo
 from services.kafka_producer import kafka_producer
+from routers.auth import get_current_account
+from models.account import AccountModel
 
 router = APIRouter()
 
 @router.post("/async_predict")
-async def async_predict(item_id: int):
+async def async_predict(
+    item_id: int,
+    current_account: AccountModel = Depends(get_current_account)
+):
     ad = await ad_repo.get_ad_by_id(item_id)
     if not ad:
         raise HTTPException(status_code=404, detail="Ad not found")
@@ -17,7 +22,10 @@ async def async_predict(item_id: int):
     return {"task_id": task_id, "status": "pending", "message": "Moderation request accepted"}
 
 @router.get("/moderation_result/{task_id}")
-async def get_moderation_result(task_id: int):
+async def get_moderation_result(
+    task_id: int,
+    current_account: AccountModel = Depends(get_current_account)
+):
     task = await ad_repo.get_moderation_task(task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")

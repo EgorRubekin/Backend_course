@@ -1,7 +1,7 @@
 import asyncpg
 from contextlib import asynccontextmanager
 
-DATABASE_URL = "postgresql://postgres:1234@localhost:5432/avito_shop"
+DATABASE_URL = "postgresql://postgres:postgres@localhost:5435/hw"
 
 class Database:
     def __init__(self):
