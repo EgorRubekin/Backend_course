@@ -1,3 +1,6 @@
+Видео mlflow
+https://disk.360.yandex.ru/i/QR1xNEZDEX3oVg
+
 Отчет в графане 
 ![alt text](image.png)
 
