@@ -4,7 +4,7 @@ import logging
 import datetime
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from db import db
-from services.repositories import ad_repo
+from repositories.ad_repo import ad_repo 
 from services.prediction import prediction_service
 
 logging.basicConfig(level=logging.INFO)

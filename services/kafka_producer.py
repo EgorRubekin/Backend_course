@@ -1,33 +1,38 @@
 import json
 import asyncio
-from aiokafka import AIOKafkaProducer
 import logging
+import os 
+from aiokafka import AIOKafkaProducer
 
 logger = logging.getLogger(__name__)
 
 class KafkaProducerManager:
     def __init__(self):
         self.producer = None
-        self.bootstrap_servers = "localhost:9092"
+        self.bootstrap_servers = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
 
     async def start(self):
-        self.producer = AIOKafkaProducer(
-            bootstrap_servers=self.bootstrap_servers,
-            value_serializer=lambda v: json.dumps(v).encode('utf-8')
-        )
-        await self.producer.start()
+        for i in range(5):
+            try:
+                self.producer = AIOKafkaProducer(
+                    bootstrap_servers=self.bootstrap_servers,
+                    value_serializer=lambda v: json.dumps(v).encode('utf-8')
+                )
+                await self.producer.start()
+                logger.info(f"Connected to Kafka at {self.bootstrap_servers}")
+                break
+            except Exception as e:
+                logger.warning(f"Kafka connection attempt {i+1} failed: {e}")
+                await asyncio.sleep(2)
 
     async def stop(self):
         if self.producer:
-            await self.producer.stop()
-
-    async def send_moderation(self, item_id: int, task_id: int):
-        payload = {
-            "item_id": item_id,
-            "task_id": task_id,
-            "retry_count": 0
-        }
-        await self.producer.send_and_wait("moderation", payload)
-        logger.info(f"Sent task {task_id} to Kafka")
+            try:
+                await self.producer.stop()
+                logger.info("Kafka producer stopped")
+            except Exception as e:
+                logger.error(f"Error while stopping Kafka producer: {e}")
+        else:
+            logger.warning("Kafka producer was not initialized, nothing to stop")
 
 kafka_producer = KafkaProducerManager()

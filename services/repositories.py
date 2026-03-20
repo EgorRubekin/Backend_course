@@ -1,6 +1,6 @@
 import time
 from db import db
-from models.prediction import AdItem
+from models.prediction import PredictionRequest
 from app.metrics import DB_QUERY_DURATION
 
 class AdRepository:
@@ -16,7 +16,7 @@ class AdRepository:
             WHERE ads.id = $1
             """
             row = await db.pool.fetchrow(query, item_id)
-            return AdItem(**dict(row)) if row else None
+            return PredictionRequest(**dict(row)) if row else None
         finally:
             duration = time.time() - start_time
             DB_QUERY_DURATION.labels(query_type="select").observe(duration)
